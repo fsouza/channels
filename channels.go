@@ -21,22 +21,6 @@ func ToSlice[T any](ctx context.Context, in <-chan T) []T {
 	}
 }
 
-func max(x, y int) int {
-	if x > y {
-		return x
-	}
-	return y
-}
-
-func trySend[T any](ctx context.Context, ch chan<- T, v T) bool {
-	select {
-	case ch <- v:
-		return true
-	case <-ctx.Done():
-		return false
-	}
-}
-
 // Take takes an input channel and returns an output channel that will contain
 // at most N elements from the input channel.
 //
@@ -54,15 +38,11 @@ func Take[T any](ctx context.Context, in <-chan T, n uint) <-chan T {
 	go func() {
 		defer close(out)
 		for i := 0; i < maxLen; i++ {
-			select {
-			case v, ok := <-in:
-				if !ok {
-					return
-				}
+			if v, ok := tryRead(ctx, in); ok {
 				if !trySend(ctx, out, v) {
 					return
 				}
-			case <-ctx.Done():
+			} else {
 				return
 			}
 		}
@@ -87,19 +67,40 @@ func Map[InputType, OutputType any](ctx context.Context, in <-chan InputType, f 
 	go func() {
 		defer close(out)
 		for {
-			select {
-			case v, ok := <-in:
-				if !ok {
-					return
-				}
-
+			if v, ok := tryRead(ctx, in); ok {
 				if !trySend(ctx, out, f(v)) {
 					return
 				}
-			case <-ctx.Done():
+			} else {
 				return
 			}
 		}
 	}()
 	return out
+}
+
+func max(x, y int) int {
+	if x > y {
+		return x
+	}
+	return y
+}
+
+func tryRead[T any](ctx context.Context, ch <-chan T) (T, bool) {
+	select {
+	case v, ok := <-ch:
+		return v, ok
+	case <-ctx.Done():
+		var zero T
+		return zero, false
+	}
+}
+
+func trySend[T any](ctx context.Context, ch chan<- T, v T) bool {
+	select {
+	case ch <- v:
+		return true
+	case <-ctx.Done():
+		return false
+	}
 }
