@@ -135,6 +135,37 @@ func TestMapWithContextCancellation(t *testing.T) {
 	}
 }
 
+func TestFilter(t *testing.T) {
+	t.Parallel()
+	ch := startGenerator(t, 0, func(p int) (int, bool) {
+		return p + 1, true
+	}, nil)
+
+	evens := Filter(context.TODO(), ch, func(v int) bool { return v%2 == 0 })
+
+	expected := []int{2, 4, 6, 8, 10}
+	got := ToSlice(context.TODO(), Take(context.TODO(), evens, 5))
+	if !reflect.DeepEqual(got, expected) {
+		t.Errorf("wrong values returned\nwant %#v\ngot  %#v", expected, got)
+	}
+}
+
+func TestFilterWithContextCancellation(t *testing.T) {
+	t.Parallel()
+	ch := startGenerator(t, 0, func(i int) (int, bool) {
+		return i + 1, true
+	}, nil)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	evens := Filter(ctx, ch, func(v int) bool { return v%2 == 0 })
+
+	got := ToSlice(context.TODO(), evens)
+	if len(got) == 0 {
+		t.Fatal("unexpected empty slice")
+	}
+}
+
 func startGenerator[T any](t *testing.T, init T, gen func(prev T) (T, bool), cb func()) <-chan T {
 	t.Helper()
 	abort := make(chan struct{})

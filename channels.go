@@ -75,6 +75,38 @@ func Map[InputType, OutputType any](ctx context.Context, in <-chan InputType, f 
 	return out
 }
 
+// Filter takes an input channel and a function to filter values from the input
+// channel and returns a channel from the input type that will only emit values
+// for which the predicate function returns true.
+//
+// The capacity of the output channel will be same as the capacity of the input
+// channel.
+//
+// This is a non-blocking function: it launches a goroutine and returns the
+// channel for consumption. In order to stop the inner goroutine, one can close
+// the input channel or cancel the provided context.
+//
+// The output channel is always closed on cancellation, even if the input
+// channel is never closed.
+func Filter[T any](ctx context.Context, in <-chan T, predicate func(T) bool) <-chan T {
+	out := make(chan T, cap(in))
+	go func() {
+		defer close(out)
+		for {
+			if v, ok := tryRead(ctx, in); ok {
+				if predicate(v) {
+					if !trySend(ctx, out, v) {
+						return
+					}
+				}
+			} else {
+				return
+			}
+		}
+	}()
+	return out
+}
+
 func max(x, y int) int {
 	if x > y {
 		return x
