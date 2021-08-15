@@ -50,7 +50,12 @@ func Take[T any](ctx context.Context, in <-chan T, n uint) <-chan T {
 				if !ok {
 					return
 				}
-				out <- v
+
+				select {
+				case out <- v:
+				case <-ctx.Done():
+					return
+				}
 			case <-ctx.Done():
 				return
 			}
