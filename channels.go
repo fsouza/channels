@@ -8,7 +8,7 @@ import "context"
 // by closing the input channel.
 func ToSlice[T any](ctx context.Context, in <-chan T) []T {
 	var result []T
-	readLoop(ctx, in, func(v T) bool {
+	receiveLoop(ctx, in, func(v T) bool {
 		result = append(result, v)
 		return true
 	})
@@ -35,7 +35,7 @@ func Take[T any](ctx context.Context, in <-chan T, n uint) <-chan T {
 			return
 		}
 		length := 0
-		readLoop(ctx, in, func(v T) bool {
+		receiveLoop(ctx, in, func(v T) bool {
 			if !trySend(ctx, out, v) {
 				return false
 			}
@@ -61,7 +61,7 @@ func Take[T any](ctx context.Context, in <-chan T, n uint) <-chan T {
 func Map[InputType, OutputType any](ctx context.Context, in <-chan InputType, f func(InputType) OutputType) <-chan OutputType {
 	out := make(chan OutputType, cap(in))
 	go func() {
-		readLoop(ctx, in, func(v InputType) bool {
+		receiveLoop(ctx, in, func(v InputType) bool {
 			return trySend(ctx, out, f(v))
 		})
 		close(out)
@@ -85,7 +85,7 @@ func Map[InputType, OutputType any](ctx context.Context, in <-chan InputType, f 
 func Filter[T any](ctx context.Context, in <-chan T, predicate func(T) bool) <-chan T {
 	out := make(chan T, cap(in))
 	go func() {
-		readLoop(ctx, in, func(v T) bool {
+		receiveLoop(ctx, in, func(v T) bool {
 			if predicate(v) {
 				return trySend(ctx, out, v)
 			}
@@ -112,7 +112,7 @@ func Filter[T any](ctx context.Context, in <-chan T, predicate func(T) bool) <-c
 func FilterMap[InputType, OutputType any](ctx context.Context, in <-chan InputType, f func(InputType) (OutputType, bool)) <-chan OutputType {
 	out := make(chan OutputType, cap(in))
 	go func() {
-		readLoop(ctx, in, func(v InputType) bool {
+		receiveLoop(ctx, in, func(v InputType) bool {
 			if outValue, ok := f(v); ok {
 				return trySend(ctx, out, outValue)
 			}
@@ -147,7 +147,7 @@ func MapError[InputType, OutputType any](ctx context.Context, in <-chan InputTyp
 	out := make(chan OutputType, cap(in))
 	errs := make(chan error)
 	go func() {
-		readLoop(ctx, in, func(v InputType) bool {
+		receiveLoop(ctx, in, func(v InputType) bool {
 			if outValue, err := f(v); err != nil {
 				return trySend(ctx, errs, err)
 			} else {
@@ -167,22 +167,22 @@ func max(x, y int) int {
 	return y
 }
 
-// readLoop loops on the input channel, calling f with values it reads from the
+// receiveLoop loops on the input channel, calling f with values it reads from the
 // input channel.
 //
 // It exits the loop if the context is cancelled, if the input channel is
 // closed or if f returns false.
-func readLoop[T any](ctx context.Context, in <-chan T, f func(T) bool) {
+func receiveLoop[T any](ctx context.Context, in <-chan T, f func(T) bool) {
 	var v T
 	loop := true
 	for loop {
-		if v, loop = tryRead(ctx, in); loop {
+		if v, loop = tryReceive(ctx, in); loop {
 			loop = f(v)
 		}
 	}
 }
 
-func tryRead[T any](ctx context.Context, ch <-chan T) (T, bool) {
+func tryReceive[T any](ctx context.Context, ch <-chan T) (T, bool) {
 	select {
 	case v, ok := <-ch:
 		return v, ok
