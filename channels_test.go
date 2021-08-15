@@ -150,6 +150,24 @@ func TestFilter(t *testing.T) {
 	}
 }
 
+func TestFilterWithClosedInputChannel(t *testing.T) {
+	t.Parallel()
+	ch := startGenerator(t, 0, func(p int) (int, bool) {
+		if p > 3 {
+			return p, false
+		}
+		return p + 1, true
+	}, nil)
+
+	evens := Filter(context.TODO(), ch, func(v int) bool { return v%2 == 0 })
+
+	expected := []int{2, 4}
+	got := ToSlice(context.TODO(), evens)
+	if !reflect.DeepEqual(got, expected) {
+		t.Errorf("wrong values returned\nwant %#v\ngot  %#v", expected, got)
+	}
+}
+
 func TestFilterWithContextCancellation(t *testing.T) {
 	t.Parallel()
 	ch := startGenerator(t, 0, func(i int) (int, bool) {
@@ -165,6 +183,57 @@ func TestFilterWithContextCancellation(t *testing.T) {
 		t.Fatal("unexpected empty slice")
 	}
 }
+
+// NOTE: Go is currently not happy with our FilterMap. Retry later.
+
+// func TestFilterMap(t *testing.T) {
+// 	t.Parallel()
+// 	ch := startGenerator(t, 0, func(p int) (int, bool) {
+// 		return p + 1, true
+// 	}, nil)
+
+// 	doubledEvens := FilterMap(context.TODO(), ch, func(v int) (int, bool) { return v * 2, v%2 == 0 })
+
+// 	expected := []int{4, 8, 12, 16, 20}
+// 	got := ToSlice(context.TODO(), Take(context.TODO(), doubledEvens, 5))
+// 	if !reflect.DeepEqual(got, expected) {
+// 		t.Errorf("wrong values returned\nwant %#v\ngot  %#v", expected, got)
+// 	}
+// }
+
+// func TestFilterMapWithClosedInputChannel(t *testing.T) {
+// 	t.Parallel()
+// 	ch := startGenerator(t, 0, func(p int) (int, bool) {
+// 		if p > 3 {
+// 			return p, false
+// 		}
+// 		return p + 1, true
+// 	}, nil)
+
+// 	doubledEvens := FilterMap(context.TODO(), ch, func(v int) (int, bool) { return v * 2, v%2 == 0 })
+
+// 	expected := []int{4, 8, 12, 16}
+// 	got := ToSlice(context.TODO(), doubledEvens)
+// 	if !reflect.DeepEqual(got, expected) {
+// 		t.Errorf("wrong values returned\nwant %#v\ngot  %#v", expected, got)
+// 	}
+// }
+
+// func TestFilterMapWithContextCancellation(t *testing.T) {
+// 	t.Parallel()
+// 	ch := startGenerator(t, "foo", func(p string) (string, bool) {
+// 		return p, true
+// 	}, nil)
+
+// 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+// 	defer cancel()
+// 	lengths := FilterMap(ctx, ch, func(v string) (int, bool) { return len(v), len(v) > 2 })
+
+// 	got := ToSlice(context.TODO(), lengths)
+// 	if len(got) == 0 {
+// 		t.Fatal("unexpected empty slice")
+// 	}
+// }
 
 func startGenerator[T any](t *testing.T, init T, gen func(prev T) (T, bool), cb func()) <-chan T {
 	t.Helper()
