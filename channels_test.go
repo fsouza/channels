@@ -55,6 +55,55 @@ func TestTakeWithContextCancellation(t *testing.T) {
 	}
 }
 
+func TestMap(t *testing.T) {
+	t.Parallel()
+	ch := startGenerator(t, 0, func(p int) (int, bool) {
+		return p + 1, true
+	}, nil)
+
+	doubled := Map(context.TODO(), ch, func(v int) int { return v * 2 })
+
+	expected := []int{2, 4, 6, 8, 10}
+	got := Take(context.TODO(), doubled, 5)
+	if !reflect.DeepEqual(got, expected) {
+		t.Errorf("wrong values returned\nwant %#v\ngot  %#v", expected, got)
+	}
+}
+
+func TestMapWithClosedInputChannel(t *testing.T) {
+	t.Parallel()
+	ch := startGenerator(t, 0, func(p int) (int, bool) {
+		if p > 3 {
+			return p, false
+		}
+		return p + 1, true
+	}, nil)
+
+	doubled := Map(context.TODO(), ch, func(v int) int { return v * 2 })
+
+	expected := []int{2, 4, 6, 8}
+	got := Take(context.TODO(), doubled, 1e9)
+	if !reflect.DeepEqual(got, expected) {
+		t.Errorf("wrong values returned\nwant %#v\ngot  %#v", expected, got)
+	}
+}
+
+func TestMapWithContextCancellation(t *testing.T) {
+	t.Parallel()
+	ch := startGenerator(t, "foo", func(p string) (string, bool) {
+		return p, true
+	}, nil)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	lengths := Map(ctx, ch, func(v string) int { return len(v) })
+
+	got := Take(context.TODO(), lengths, 1e9)
+	if len(got) == 0 {
+		t.Fatal("unexpected empty slice")
+	}
+}
+
 func startGenerator[T any](t *testing.T, init T, gen func(prev T) (T, bool), cb func()) <-chan T {
 	t.Helper()
 	abort := make(chan struct{})
