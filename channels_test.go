@@ -184,7 +184,8 @@ func TestFilterWithContextCancellation(t *testing.T) {
 	}
 }
 
-// NOTE: Go is currently not happy with our FilterMap. Retry later.
+// NOTE: Go is currently not happy with our FilterMap nor MapError. Retry
+// later.
 
 // func TestFilterMap(t *testing.T) {
 // 	t.Parallel()
@@ -232,6 +233,38 @@ func TestFilterWithContextCancellation(t *testing.T) {
 // 	got := ToSlice(context.TODO(), lengths)
 // 	if len(got) == 0 {
 // 		t.Fatal("unexpected empty slice")
+// 	}
+// }
+
+// func TestMapError(t *testing.T) {
+// 	t.Parallel()
+// 	ch := startGenerator(t, 0, func(p int) (int, bool) {
+// 		return p + 1, true
+// 	}, nil)
+
+// 	doubledOdds, errs := MapError(context.TODO(), ch, func(v int) (int, error) {
+// 		var err error
+// 		if v%2 == 0 {
+// 			err = fmt.Errorf("%d is even, don't like that", v)
+// 		}
+// 		return v * 2, err
+// 	})
+
+// 	expectedVals := []int{2, 6, 10, 14, 18}
+// 	got := ToSlice(context.TODO(), Take(context.TODO(), doubledOdds, 5))
+// 	if !reflect.DeepEqual(got, expectedVals) {
+// 		t.Errorf("wrong values returned\nwant %#v\ngot  %#v", expectedVals, got)
+// 	}
+
+// 	expectedErrs := []string{
+// 		"2 is even, don't like that",
+// 		"4 is even, don't like that",
+// 		"6 is even, don't like that",
+// 		"8 is even, don't like that",
+// 	}
+// 	gotErrs := ToSlice(context.TODO(), Map(context.TODO(), errs, func(err error) string { return err.Error() }))
+// 	if !reflect.DeepEqual(gotErrs, expectedErrs) {
+// 		t.Errorf("wrong errors returned\nwant %#v\ngot  %#v", expectedErrs, gotErrs)
 // 	}
 // }
 
