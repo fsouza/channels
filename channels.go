@@ -93,11 +93,6 @@ func Map[InputType, OutputType any](ctx context.Context, in <-chan InputType, f 
 					return
 				}
 
-				select {
-				case out <- f(v):
-				case <-ctx.Done():
-					return
-				}
 				if !trySend(ctx, out, f(v)) {
 					return
 				}
