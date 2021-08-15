@@ -24,7 +24,7 @@ jobs:
 
       - name: install gotip
         run: |
-          go install golang.org/dl/gotip
+          go install golang.org/dl/gotip@latest
           gotip download
 
       - name: run-tests
