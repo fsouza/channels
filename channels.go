@@ -9,13 +9,9 @@ import "context"
 func ToSlice[T any](ctx context.Context, in <-chan T) []T {
 	var result []T
 	for {
-		select {
-		case v, ok := <-in:
-			if !ok {
-				return result
-			}
+		if v, ok := tryRead(ctx, in); ok {
 			result = append(result, v)
-		case <-ctx.Done():
+		} else {
 			return result
 		}
 	}
