@@ -24,6 +24,13 @@ func TestTake(t *testing.T) {
 		}
 	})
 
+	t.Run("can take 0 elements", func(t *testing.T) {
+		values := Take(context.TODO(), ch, 0)
+		if values != nil {
+			t.Errorf("unexpected non-nil slice from Take(0): %#v", values)
+		}
+	})
+
 	t.Run("can take less than N if channel is closed", func(t *testing.T) {
 		values := Take(context.TODO(), ch, 10)
 		expectedSlice := []int{6, 7, 8, 9, 10}
@@ -34,6 +41,7 @@ func TestTake(t *testing.T) {
 }
 
 func TestTakeWithContextCancellation(t *testing.T) {
+	t.Parallel()
 	ch := startGenerator(t, "", func(v string) (string, bool) {
 		return v, true
 	}, func() { time.Sleep(time.Second) })
