@@ -173,22 +173,14 @@ func max(x, y int) int {
 // It exits the loop if the context is cancelled, if the input channel is
 // closed or if f returns false.
 func receiveLoop[T any](ctx context.Context, in <-chan T, f func(T) bool) {
-	var v T
 	loop := true
 	for loop {
-		if v, loop = tryReceive(ctx, in); loop {
-			loop = f(v)
+		select {
+		case v, ok := <-in:
+			loop = ok && f(v)
+		case <-ctx.Done():
+			loop = false
 		}
-	}
-}
-
-func tryReceive[T any](ctx context.Context, ch <-chan T) (T, bool) {
-	select {
-	case v, ok := <-ch:
-		return v, ok
-	case <-ctx.Done():
-		var zero T
-		return zero, false
 	}
 }
 
