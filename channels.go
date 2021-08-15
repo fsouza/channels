@@ -28,6 +28,15 @@ func max(x, y int) int {
 	return y
 }
 
+func trySend[T any](ctx context.Context, ch chan<- T, v T) bool {
+	select {
+	case ch <- v:
+		return true
+	case <-ctx.Done():
+		return false
+	}
+}
+
 // Take takes an input channel and returns an output channel that will contain
 // at most N elements from the input channel.
 //
@@ -50,10 +59,7 @@ func Take[T any](ctx context.Context, in <-chan T, n uint) <-chan T {
 				if !ok {
 					return
 				}
-
-				select {
-				case out <- v:
-				case <-ctx.Done():
+				if !trySend(ctx, out, v) {
 					return
 				}
 			case <-ctx.Done():
@@ -90,6 +96,9 @@ func Map[InputType, OutputType any](ctx context.Context, in <-chan InputType, f 
 				select {
 				case out <- f(v):
 				case <-ctx.Done():
+					return
+				}
+				if !trySend(ctx, out, f(v)) {
 					return
 				}
 			case <-ctx.Done():
