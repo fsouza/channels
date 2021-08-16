@@ -59,14 +59,9 @@ func Take[T any](ctx context.Context, in <-chan T, n uint) <-chan T {
 // The output channel is always closed on cancellation, even if the input
 // channel is never closed.
 func Map[InputType, OutputType any](ctx context.Context, in <-chan InputType, f func(InputType) OutputType) <-chan OutputType {
-	out := make(chan OutputType, cap(in))
-	go func() {
-		receiveLoop(ctx, in, func(v InputType) bool {
-			return trySend(ctx, out, f(v))
-		})
-		close(out)
-	}()
-	return out
+	return FilterMap(ctx, in, func(v InputType) (OutputType, bool) {
+		return f(v), true
+	})
 }
 
 // Filter takes an input channel and a function to filter values from the input
