@@ -39,7 +39,7 @@ func Take[T any](ctx context.Context, in <-chan T, n uint) <-chan T {
 			if !trySend(ctx, out, v) {
 				return false
 			}
-			length += 1
+			length++
 			return length < maxLen
 		})
 	}()
