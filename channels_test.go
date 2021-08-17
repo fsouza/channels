@@ -2,6 +2,7 @@ package channels
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -184,89 +185,86 @@ func TestFilterWithContextCancellation(t *testing.T) {
 	}
 }
 
-// NOTE: Go is currently not happy with our FilterMap nor MapError. Retry
-// later.
+func TestFilterMap(t *testing.T) {
+	t.Parallel()
+	ch := startGenerator(t, 0, func(p int) (int, bool) {
+		return p + 1, true
+	}, nil)
 
-// func TestFilterMap(t *testing.T) {
-// 	t.Parallel()
-// 	ch := startGenerator(t, 0, func(p int) (int, bool) {
-// 		return p + 1, true
-// 	}, nil)
+	doubledEvens := FilterMap(context.TODO(), ch, func(v int) (int, bool) { return v * 2, v%2 == 0 })
 
-// 	doubledEvens := FilterMap(context.TODO(), ch, func(v int) (int, bool) { return v * 2, v%2 == 0 })
+	expected := []int{4, 8, 12, 16, 20}
+	got := ToSlice(context.TODO(), Take(context.TODO(), doubledEvens, 5))
+	if !reflect.DeepEqual(got, expected) {
+		t.Errorf("wrong values returned\nwant %#v\ngot  %#v", expected, got)
+	}
+}
 
-// 	expected := []int{4, 8, 12, 16, 20}
-// 	got := ToSlice(context.TODO(), Take(context.TODO(), doubledEvens, 5))
-// 	if !reflect.DeepEqual(got, expected) {
-// 		t.Errorf("wrong values returned\nwant %#v\ngot  %#v", expected, got)
-// 	}
-// }
+func TestFilterMapWithClosedInputChannel(t *testing.T) {
+	t.Parallel()
+	ch := startGenerator(t, 0, func(p int) (int, bool) {
+		if p > 3 {
+			return p, false
+		}
+		return p + 1, true
+	}, nil)
 
-// func TestFilterMapWithClosedInputChannel(t *testing.T) {
-// 	t.Parallel()
-// 	ch := startGenerator(t, 0, func(p int) (int, bool) {
-// 		if p > 3 {
-// 			return p, false
-// 		}
-// 		return p + 1, true
-// 	}, nil)
+	doubledEvens := FilterMap(context.TODO(), ch, func(v int) (int, bool) { return v * 2, v%2 == 0 })
 
-// 	doubledEvens := FilterMap(context.TODO(), ch, func(v int) (int, bool) { return v * 2, v%2 == 0 })
+	expected := []int{4, 8, 12, 16}
+	got := ToSlice(context.TODO(), doubledEvens)
+	if !reflect.DeepEqual(got, expected) {
+		t.Errorf("wrong values returned\nwant %#v\ngot  %#v", expected, got)
+	}
+}
 
-// 	expected := []int{4, 8, 12, 16}
-// 	got := ToSlice(context.TODO(), doubledEvens)
-// 	if !reflect.DeepEqual(got, expected) {
-// 		t.Errorf("wrong values returned\nwant %#v\ngot  %#v", expected, got)
-// 	}
-// }
+func TestFilterMapWithContextCancellation(t *testing.T) {
+	t.Parallel()
+	ch := startGenerator(t, "foo", func(p string) (string, bool) {
+		return p, true
+	}, nil)
 
-// func TestFilterMapWithContextCancellation(t *testing.T) {
-// 	t.Parallel()
-// 	ch := startGenerator(t, "foo", func(p string) (string, bool) {
-// 		return p, true
-// 	}, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	lengths := FilterMap(ctx, ch, func(v string) (int, bool) { return len(v), len(v) > 2 })
 
-// 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-// 	defer cancel()
-// 	lengths := FilterMap(ctx, ch, func(v string) (int, bool) { return len(v), len(v) > 2 })
+	got := ToSlice(context.TODO(), lengths)
+	if len(got) == 0 {
+		t.Fatal("unexpected empty slice")
+	}
+}
 
-// 	got := ToSlice(context.TODO(), lengths)
-// 	if len(got) == 0 {
-// 		t.Fatal("unexpected empty slice")
-// 	}
-// }
+func TestMapError(t *testing.T) {
+	t.Parallel()
+	ch := startGenerator(t, 0, func(p int) (int, bool) {
+		return p + 1, true
+	}, nil)
 
-// func TestMapError(t *testing.T) {
-// 	t.Parallel()
-// 	ch := startGenerator(t, 0, func(p int) (int, bool) {
-// 		return p + 1, true
-// 	}, nil)
+	doubledOdds, errs := MapError(context.TODO(), ch, func(v int) (int, error) {
+		var err error
+		if v%2 == 0 {
+			err = fmt.Errorf("%d is even, don't like that", v)
+		}
+		return v * 2, err
+	})
 
-// 	doubledOdds, errs := MapError(context.TODO(), ch, func(v int) (int, error) {
-// 		var err error
-// 		if v%2 == 0 {
-// 			err = fmt.Errorf("%d is even, don't like that", v)
-// 		}
-// 		return v * 2, err
-// 	})
+	expectedVals := []int{2, 6, 10, 14, 18}
+	got := ToSlice(context.TODO(), Take(context.TODO(), doubledOdds, 5))
+	if !reflect.DeepEqual(got, expectedVals) {
+		t.Errorf("wrong values returned\nwant %#v\ngot  %#v", expectedVals, got)
+	}
 
-// 	expectedVals := []int{2, 6, 10, 14, 18}
-// 	got := ToSlice(context.TODO(), Take(context.TODO(), doubledOdds, 5))
-// 	if !reflect.DeepEqual(got, expectedVals) {
-// 		t.Errorf("wrong values returned\nwant %#v\ngot  %#v", expectedVals, got)
-// 	}
-
-// 	expectedErrs := []string{
-// 		"2 is even, don't like that",
-// 		"4 is even, don't like that",
-// 		"6 is even, don't like that",
-// 		"8 is even, don't like that",
-// 	}
-// 	gotErrs := ToSlice(context.TODO(), Map(context.TODO(), errs, func(err error) string { return err.Error() }))
-// 	if !reflect.DeepEqual(gotErrs, expectedErrs) {
-// 		t.Errorf("wrong errors returned\nwant %#v\ngot  %#v", expectedErrs, gotErrs)
-// 	}
-// }
+	expectedErrs := []string{
+		"2 is even, don't like that",
+		"4 is even, don't like that",
+		"6 is even, don't like that",
+		"8 is even, don't like that",
+	}
+	gotErrs := ToSlice(context.TODO(), Map(context.TODO(), errs, func(err error) string { return err.Error() }))
+	if !reflect.DeepEqual(gotErrs, expectedErrs) {
+		t.Errorf("wrong errors returned\nwant %#v\ngot  %#v", expectedErrs, gotErrs)
+	}
+}
 
 func startGenerator[T any](t *testing.T, init T, gen func(prev T) (T, bool), cb func()) <-chan T {
 	t.Helper()
