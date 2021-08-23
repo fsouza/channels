@@ -28,4 +28,4 @@ jobs:
           gotip download
 
       - name: run-tests
-        run: gotip test -gcflags=-G=3
+        run: gotip test
