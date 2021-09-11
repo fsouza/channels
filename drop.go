@@ -3,25 +3,24 @@ package channels
 import "context"
 
 // Drop takes an input channel and returns an output channel that will contain
-// at most N elements from the input channel.
+// all elements from the input channel, except for the first N.
 //
-// The capacity of the output channel will be min(cap(inputChannel, n)).
+// The capacity of the output channel will be cap(inputChannel).
 //
 // This is a non-blocking function: it launches a goroutine and returns the
 // channel for consumption. In order to stop the inner goroutine, one can close
 // the input channel or cancel the provided context.
 //
-// The output channel is always closed on cancellation or after sending N
-// elements, even if the input channel is never closed.
+// The output channel is always closed on cancellation, even if the input
+// channel is never closed.
 func Drop[T any](ctx context.Context, in <-chan T, n uint) <-chan T {
-	maxLen := int(n)
-	out := make(chan T, min(maxLen, cap(in)))
+	itemsToDrop := int(n)
+	out := make(chan T, cap(in))
 	go func() {
 		defer close(out)
-		length := 0
 		receiveLoop(ctx, in, func(v T) bool {
-			length++
-			if length < maxLen+1 {
+			if itemsToDrop > 0 {
+				itemsToDrop--
 				return true
 			}
 
@@ -35,8 +34,8 @@ func Drop[T any](ctx context.Context, in <-chan T, n uint) <-chan T {
 }
 
 // DropWhile takes an input channel and returns an output channel that will
-// emit values until the provided function returns false. It discards the value
-// of the first element for which the predicate function returns false.
+// skip values from the input channel until the provided function returns
+// false.
 //
 // The capacity of the output channel will be cap(inputChannel).
 //
@@ -44,9 +43,8 @@ func Drop[T any](ctx context.Context, in <-chan T, n uint) <-chan T {
 // channel for consumption. In order to stop the inner goroutine, one can close
 // the input channel or cancel the provided context.
 //
-// The output channel is always closed on cancellation or after the provided
-// function returns false for an element, even if the input channel is never
-// closed.
+// The output channel is always closed on cancellation, even if the input
+// channel is never closed.
 func DropWhile[T any](ctx context.Context, in <-chan T, f func(T) bool) <-chan T {
 	out := make(chan T, cap(in))
 	go func() {
@@ -64,8 +62,8 @@ func DropWhile[T any](ctx context.Context, in <-chan T, f func(T) bool) <-chan T
 }
 
 // DropUntil takes an input channel and returns an output channel that will
-// emit values until the provided function returns true. It discards the value
-// of the first element for which the predicate function returns true.
+// skip values from the input channel until the provided function returns
+// true.
 //
 // The capacity of the output channel will be cap(inputChannel).
 //
@@ -73,9 +71,8 @@ func DropWhile[T any](ctx context.Context, in <-chan T, f func(T) bool) <-chan T
 // channel for consumption. In order to stop the inner goroutine, one can close
 // the input channel or cancel the provided context.
 //
-// The output channel is always closed on cancellation or after the provided
-// function returns false for an element, even if the input channel is never
-// closed.
+// The output channel is always closed on cancellation, even if the input
+// channel is never closed.
 func DropUntil[T any](ctx context.Context, in <-chan T, f func(T) bool) <-chan T {
 	return DropWhile(ctx, in, func(v T) bool {
 		return !f(v)
