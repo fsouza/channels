@@ -88,14 +88,12 @@ func TestTakeWhileEmpty(t *testing.T) {
 		return p + 1, true
 	}, nil)
 
-	t.Run("stops as soon as predicate returns false", func(t *testing.T) {
-		values := ToSlice(context.TODO(), TakeWhile(context.TODO(), ch, func(v int) bool {
-			return v < 0
-		}))
-		if values != nil {
-			t.Errorf("unexpected non-nil slice: %#v", values)
-		}
-	})
+	values := ToSlice(context.TODO(), TakeWhile(context.TODO(), ch, func(v int) bool {
+		return v < 0
+	}))
+	if values != nil {
+		t.Errorf("unexpected non-nil slice: %#v", values)
+	}
 }
 
 func TestTakeWhileWithContextCancellation(t *testing.T) {
@@ -146,14 +144,12 @@ func TestTakeUntilEmpty(t *testing.T) {
 		return p + 1, true
 	}, nil)
 
-	t.Run("stops as soon as predicate returns false", func(t *testing.T) {
-		values := ToSlice(context.TODO(), TakeUntil(context.TODO(), ch, func(v int) bool {
-			return v > 0
-		}))
-		if values != nil {
-			t.Errorf("unexpected non-nil slice: %#v", values)
-		}
-	})
+	values := ToSlice(context.TODO(), TakeUntil(context.TODO(), ch, func(v int) bool {
+		return v > 0
+	}))
+	if values != nil {
+		t.Errorf("unexpected non-nil slice: %#v", values)
+	}
 }
 
 func TestTakeUntilWithContextCancellation(t *testing.T) {
