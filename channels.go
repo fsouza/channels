@@ -18,7 +18,7 @@ func ToSlice[T any](ctx context.Context, in <-chan T) []T {
 // Take takes an input channel and returns an output channel that will contain
 // at most N elements from the input channel.
 //
-// The capacity of the output channel will be max(cap(inputChannel, n)).
+// The capacity of the output channel will be min(cap(inputChannel, n)).
 //
 // This is a non-blocking function: it launches a goroutine and returns the
 // channel for consumption. In order to stop the inner goroutine, one can close
@@ -28,7 +28,7 @@ func ToSlice[T any](ctx context.Context, in <-chan T) []T {
 // elements, even if the input channel is never closed.
 func Take[T any](ctx context.Context, in <-chan T, n uint) <-chan T {
 	maxLen := int(n)
-	out := make(chan T, max(maxLen, cap(in)))
+	out := make(chan T, min(maxLen, cap(in)))
 	go func() {
 		defer close(out)
 		if maxLen == 0 {
@@ -155,8 +155,8 @@ func MapError[InputType, OutputType any](ctx context.Context, in <-chan InputTyp
 	return out, errs
 }
 
-func max(x, y int) int {
-	if x > y {
+func min(x, y int) int {
+	if x < y {
 		return x
 	}
 	return y
