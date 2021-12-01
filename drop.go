@@ -14,23 +14,13 @@ import "context"
 // The output channel is always closed on cancellation, even if the input
 // channel is never closed.
 func Drop[T any](ctx context.Context, in <-chan T, n uint) <-chan T {
-	itemsToDrop := int(n)
-	out := make(chan T, cap(in))
-	go func() {
-		defer close(out)
-		receiveLoop(ctx, in, func(v T) bool {
-			if itemsToDrop > 0 {
-				itemsToDrop--
-				return true
-			}
-
-			if !trySend(ctx, out, v) {
-				return false
-			}
+	return DropWhile(ctx, in, func(T) bool {
+		if n > 0 {
+			n--
 			return true
-		})
-	}()
-	return out
+		}
+		return false
+	})
 }
 
 // DropWhile takes an input channel and returns an output channel that will
